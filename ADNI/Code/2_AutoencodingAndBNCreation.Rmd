@@ -1,0 +1,375 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+##Load all the libraries
+```{r}
+library(h2o)
+library(randomForest)
+library(bnlearn)
+library(ggplot2)
+library(CORElearn)
+library(dummies)
+library(dummy)
+library(stringi)
+library(stringr)
+library(lattice)
+library(caret)
+library(binst)
+library(rmarkdown)
+library(dataPreparation)
+library(arules)
+library(missForest)
+library(parallel)
+library(doMC)
+library (cowplot)
+library(tidyr)
+library(dplyr)
+```
+
+
+##Autoencode the group of variables##
+```{r}
+getdeepfeature <- function(train_data, groupname, timepoint){
+
+  h2o.init(nthreads = -1)
+  train_data = as.h2o((train_data))
+  n = round(dim(train_data)[2] /2)   
+  m = round(dim(train_data)[2] /4)
+  r = sample(1:100000, 1)
+  #hyper_params <- list(activation=c("Rectifier","Tanh","Maxout","RectifierWithDropout","TanhWithDropout","MaxoutWithDropout"),
+  hyper_params <- list(activation= c("RectifierWithDropout", "TanhWithDropout"),
+                       hidden = list(1, c(n, 1), c(n,m,1), c(m,1)),  # make it dynamic
+                       input_dropout_ratio=c(0,0.05, 0.2,0.5),
+                       #l1=seq(0,1e-4,1e-6),
+                       #l2=seq(0,1e-4,1e-6)
+                       l2=10^c(-4:4))
+  
+  grid = h2o.grid("deeplearning",
+                  grid_id = paste("mygrid", r, sep="_"),
+                  autoencoder = TRUE,
+                  x = colnames(train_data),
+                  training_frame = train_data,
+                  #nfolds=5,
+                  #balance_classes=TRUE,
+                  seed=1234567,
+                  stopping_metric="MSE",
+                  stopping_rounds = 5,
+                  #input_dropout_ratio = 0.2,
+                  #activation= "TanhWithDropout",
+                  standardize=TRUE,
+                  epochs=500,
+                  hyper_params = hyper_params) 
+  gbm_sorted_grid <- h2o.getGrid(grid_id = paste("mygrid", r, sep="_"), sort_by = "mse")
+  fit <- h2o.getModel(gbm_sorted_grid@model_ids[[1]])
+  print("fit model")
+  print(fit)
+  nlayers = length(strsplit(substr(gbm_sorted_grid@summary_table[1,1], 2, nchar(gbm_sorted_grid@summary_table[1,1])-1), ",")[[1]])
+  newvar = as.data.frame(h2o.deepfeatures(fit, train_data, nlayers))
+  print("dim of new var")
+  print(dim(newvar))
+  #Rename column
+  colnames(newvar) = paste(groupname, timepoint,sep= ".")
+  #print("job complete, meta feature for test set successfully predicted")
+  output = list("model" = fit, "meta_feature" = newvar, "nlayers" = nlayers, "modelID" = gbm_sorted_grid@model_ids[[1]] )  
+  h2o.saveModel(fit, path= "Auto_Model_New")
+  #h2o.shutdown(prompt = FALSE)
+  return(output)
+}
+```
+
+```{r}
+##converting the snps to numeric 
+impData[c(snps,"APOE4.bl")] <- lapply(impData[c(snps,"APOE4.bl")], as.numeric)
+impDataNoPath <- impData[ ,!(names(impData) %in% c(paths, "path.aux"))]
+input_df <- impDataNoPath
+timePoints <- c("bl", "m06", "m12", "m24")
+  combine_autoen <- data.frame()
+  combined_meta_rf_merge <- data.frame()
+  auxBl <- grep("bl.aux|[a-z][^6]\\.aux", colnames(input_df), value =TRUE)
+  auxBl <- c(auxBl, "brain68.aux")
+  auxm06 <-  grep("m06.aux", colnames(input_df), value =TRUE)
+  auxm12 <-  grep("m12.aux", colnames(input_df), value =TRUE)
+  auxm24 <-  grep("m24.aux", colnames(input_df), value =TRUE)
+  diagnosis <- grep("DX", colnames(input_df), value = TRUE)
+  demogs <-  grep("PT[^I|A]", colnames(input_df), value = TRUE)
+  age <- "AGE.bl"
+  paths <- colnames(getPathScoreVal)
+  brain68 <- colnames(getBrain68Val)
+  snps <- grep("^rs.*",colnames(input_df),value = TRUE)
+  snpApoe <- c(snps, "APOE4.bl")
+  diagnosisLabel <- "DX.bl"
+  brain <- grep("(Entorhinal|Fusiform|MidTemp|Hippocampus|ICV|Ventricles|WholeBrain)", colnames(input_df),value = TRUE)
+  cogTest <- grep("(CDRSB|ADAS11|ADAS13|MMSE|FAQ|RAVLT)", colnames(input_df),value = TRUE)
+  csf <- grep("(ABETA|TAU|PTAU)", colnames(input_df),value = TRUE)
+  unique_groups = list(csf,brain, cogTest,brain68, snpApoe) 
+  #unique_groups = list(csf,fdgAv45) 
+  meta_rf <-  as.data.frame(matrix(nrow = dim(input_df)[1], ncol = 1 ))
+  meta_feature_vol_list <- list()
+  meta_feature_cog_list <- list()
+  for(j in 1:length(unique_groups))
+    {
+      group = unlist(unique_groups[j])
+      print(group)
+      group_data <- input_df[,group]
+      print(colnames(group_data))
+      if(("ABETA.bl" %in% colnames(group_data))== TRUE){
+        print("CSF")
+        groupname = "CSF"
+        group_data_tr <- group_data[,grep(paste(".*", "bl", "$", sep=""), colnames(group_data), value = TRUE)]
+        meta_feature <- getdeepfeature(group_data_tr,groupname, "bl")
+        meta_feature_csf <- meta_feature
+        meta_rf <- cbind(meta_rf, meta_feature[[2]][1])
+        #model.csf <- h2o.saveModel(meta_rf[[1]])
+        #h2o.shutdown(prompt = FALSE)
+        print(meta_feature)
+        print(colnames(meta_rf))
+      }
+      if(("Left_cuneus" %in% colnames(group_data))== TRUE){
+        groupname = "brain68"
+        group_data_tr <- group_data
+        meta_feature <- getdeepfeature(group_data_tr, groupname, "bl")
+        meta_feature_brain68 <- meta_feature
+        meta_rf <- cbind(meta_rf, meta_feature[[2]][1])
+        #model.brain68 <- h2o.saveModel(meta_rf[[1]])
+        #h2o.shutdown(prompt = FALSE)
+        print(meta_feature)
+        print(colnames(meta_rf))
+      }
+      if(("rs2230805" %in% colnames(group_data))== TRUE){
+        print("snp")
+        groupname = "SNP"
+         group_data_tr <- group_data
+        meta_feature <- getdeepfeature(group_data_tr, groupname, "bl")
+        meta_feature_snp <- meta_feature
+        meta_rf <- cbind(meta_rf, meta_feature[[2]][1])
+        #model.snp <- h2o.saveModel(meta_rf[[1]])
+        #h2o.shutdown(prompt = FALSE)
+        print(meta_feature)
+        print(colnames(meta_rf))
+      }
+    for(time in timePoints)
+      {
+        if(((paste("Entorhinal", time, sep =".")) %in% colnames(group_data)) == TRUE){
+          #print("Volumes")
+          groupname = "brain"
+          group_data_tr <- group_data[,grep(paste(".*", time, "$", sep=""), colnames(group_data), value = TRUE)]
+          meta_feature <- getdeepfeature(group_data_tr,groupname, time)
+          meta_feature_vol <- meta_feature
+          meta_rf <- cbind(meta_rf, meta_feature[[2]][1])
+          #model.brain <- h2o.saveModel(meta_rf[[1]])
+          #h2o.shutdown(prompt = FALSE)
+          print(meta_feature)
+          print(colnames(meta_rf))
+          meta_feature_vol_list[[length(meta_feature_vol_list) + 1]] <- meta_feature_vol
+        }
+        if(((paste("ADAS11", time, sep = ".")) %in% colnames(group_data))== TRUE){
+          #print("Cognition")
+          groupname = "Cog"
+          group_data_tr<- group_data[,grep(paste(".*", time, "$", sep=""), colnames(group_data), value = TRUE)]
+          meta_feature <- getdeepfeature(group_data_tr, groupname, time)
+          meta_feature_cog <- meta_feature
+          meta_feature_cog_list[[length(meta_feature_cog_list) + 1]] <- meta_feature_cog
+          meta_rf <- cbind(meta_rf, meta_feature[[2]][1])
+          #h2o.shutdown(prompt = FALSE)
+          print(meta_feature)
+          print(colnames(meta_rf))
+        }
+       }
+  }
+        
+    meta_rf$V1 <- NULL
+    print(colnames(meta_rf))
+    meta_rf$FDGAV45.bl <- NULL
+    meta_rf <- cbind(meta_rf, impDataNoPath$FDG.bl)
+    disc_meta_rf <- meta_rf
+    names(disc_meta_rf)[12] <- "AGE.bl"
+    names(disc_meta_rf)[13] <- "FDG.bl"
+    pdf("/Users/Meems/Documents/PhDWork/BayesianNetworkAD/CodeAndResultsforPaper/FinalResults/hist_bins_new.pdf")
+    for(i in colnames(disc_meta_rf)){
+      dt_breaks <- create_breaks(disc_meta_rf[,i], input_df[,"DX.bl"], method="dt")
+      disc_meta_rf[,i] <- create_bins(disc_meta_rf[,i], dt_breaks)
+      hist(disc_meta_rf[,i], main = paste("Breaks for",  i, sep = " ")) 
+      abline(v=dt_breaks, col="red")
+    }
+    dev.off()
+    print("levels of training data")
+    print(sapply(disc_meta_rf[,sapply(disc_meta_rf, is.factor)], nlevels))
+    meta_rf_merge <- cbind(disc_meta_rf, input_df[,diagnosis], input_df[,unique(c(demogs,auxBl,auxm06, auxm12, auxm24))])
+```
+
+##extract MSE for each model to a table
+```{r}
+##access cognitive features 
+cogModel.bl <- h2o.loadModel(paste(getwd(), "/Auto_Model_New/", meta_feature_cog_list[[1]][[4]], sep =""))
+cogModel.m06 <-h2o.loadModel(paste(getwd(), "/Auto_Model_New/", meta_feature_cog_list[[2]][[4]], sep =""))
+cogModel.m12 <- h2o.loadModel(paste(getwd(), "/Auto_Model_New/", meta_feature_cog_list[[3]][[4]], sep =""))
+cogModel.m24 <-h2o.loadModel(paste(getwd(), "/Auto_Model_New/", meta_feature_cog_list[[4]][[4]], sep =""))
+
+##mse for cognitive features##
+cog.mse.df <- data.frame(Features = character(), MSE = double(), stringsAsFactors=FALSE)
+for(i in 1:length(meta_feature_cog_list)){
+  print(i)
+  cog.mse.df[i,1] <-  colnames(meta_feature_cog_list[[i]]$meta_feature)
+  cog.mse.df[i,2] <- h2o.mse(h2o.loadModel(paste(getwd(), "/Auto_Model_New/", meta_feature_cog_list[[i]][[4]], sep ="")))
+}
+
+##mse for brain volume features##
+brain.mse.df <- data.frame(Features = character(), MSE = double(), stringsAsFactors=FALSE)
+for(i in 1:length(meta_feature_vol_list)){
+  print(i)
+  brain.mse.df[i,1] <- colnames(meta_feature_vol_list[[i]]$meta_feature)
+  brain.mse.df[i,2] <- h2o.mse(h2o.loadModel(paste(getwd(), "/Auto_Model_New/", meta_feature_vol_list[[i]][[4]], sep ="")))
+}
+
+mse.df <- rbind(cog.mse.df, 
+                brain.mse.df, 
+                c(colnames(meta_feature_brain68$meta_feature), h2o.mse(h2o.loadModel(paste(getwd(), "/Auto_Model_New/", meta_feature_brain68[[4]], sep ="")))),
+                 c(colnames(meta_feature_csf$meta_feature), h2o.mse(h2o.loadModel(paste(getwd(), "/Auto_Model_New/", meta_feature_csf[[4]], sep ="")))),
+                 c(colnames(meta_feature_snp$meta_feature), h2o.mse(h2o.loadModel(paste(getwd(), "/Auto_Model_New/", meta_feature_snp[[4]], sep =""))))
+                )
+mse.df$MSE <- as.numeric(mse.df$MSE)
+mse.df$MSE <- round(mse.df$MSE, digits =3)
+write.csv(mse.df,"/output/mse.df.csv")
+```
+
+##Variable Importance
+```{r}
+#Pathways
+library(dataframes2xls)
+brain68Imp <- h2o.varimp(meta_feature_brain68[[1]])
+csfImp <- h2o.varimp(meta_feature_csf[[1]])
+snpImp <- h2o.varimp(meta_feature_snp[[1]])
+
+
+cogblImp <- h2o.varimp(meta_feature_cog_list[[1]][[1]])
+cogm06Imp <- h2o.varimp(meta_feature_cog_list[[2]][[1]])
+cogm12Imp <- h2o.varimp(meta_feature_cog_list[[3]][[1]])
+cogm24Imp <- h2o.varimp(meta_feature_cog_list[[4]][[1]])
+
+brainvolblImp <- h2o.varimp(meta_feature_vol_list[[1]][[1]])
+brainvolm06Imp <- h2o.varimp(meta_feature_vol_list[[2]][[1]])
+brainvolm12Imp <- h2o.varimp(meta_feature_vol_list[[3]][[1]])
+brainvolm24Imp <- h2o.varimp(meta_feature_vol_list[[4]][[1]])
+
+dataframes2xls::write.xls(c(brain68Imp,csfImp, snpImp, brainvolblImp, 
+                            brainvolm06Imp, brainvolm12Imp, brainvolm24Imp,
+                            cogblImp, cogm06Imp, cogm12Imp, cogm24Imp), "/output/varImpNov.xls")
+```
+
+
+##Black list and white list without pathways, and data without pathway columns, replacing FDGAV45.bl with FDG.bl
+```{r}
+blNoPath <- predblnew[!predblnew$from%in% c("path.aux", "Path.bl") & !predblnew$to%in% c("path.aux", "Path.bl"), ]
+wlNoPath <- predwlnew[!predwlnew$from%in% c("path.aux", "Path.bl") & !predwlnew$to%in% c("path.aux", "Path.bl"), ]
+blNoPath$from[blNoPath$from == "FDGAV45.bl"] <- "FDG.bl"
+blNoPath$to[blNoPath$to == "FDGAV45.bl"] <- "FDG.bl"
+wlNoPath <- predwlnew[!predwlnew$from%in% c("path.aux", "Path.bl") & !predwlnew$to%in% c("path.aux", "Path.bl"), ]
+```
+
+
+##Build the bayesian network
+```{r}
+##Update the white list and black list##
+blistAux <- blNoPath[(grepl("aux", blNoPath$from) & (grepl("aux", blNoPath$to))),]
+blistAux$match <- sub("\\..*", "", blistAux$from) == sub("\\..*", "", blistAux$to)
+blistAux <- subset(blistAux, blistAux$match == TRUE)
+rowids <- c()
+for(i in 1:nrow(blistAux)){
+  lhs <- as.numeric(str_extract(blistAux[i,1], "[[:digit:]]+"))
+  rhs <- as.numeric(str_extract(blistAux[i,2], "[[:digit:]]+"))
+  if(is.na(rhs) == FALSE){
+    if((is.na(lhs) == TRUE) || (lhs < rhs)){
+      rowids <- c(rowids, i)
+    }
+  }
+}
+wlistAux <- as.data.frame(blistAux[rowids,])
+wlistAux$match <- NULL
+##New wlist with aux columns added in temporal order##
+wlNewWithAux <- rbind.data.frame(wlNoPath, wlistAux)
+wlNoPath <- wlNewWithAux
+
+##New black list Remove above data from black list##
+blNewWithAux <- anti_join(blNoPath, wlistAux)
+blNoPath <- blNewWithAux
+
+set.seed(1234)
+registerDoMC(cores=10)
+  
+cl=makeCluster(10)
+
+DiscAutoEnADNI <- meta_rf_merge
+DiscAutoEnADNI[] <- lapply(DiscAutoEnADNI, factor)
+
+cvres1 = bn.cv(DiscAutoEnADNI, "rsmax2", runs=10, fit="bayes", loss="logl",  algorithm.args = list(blacklist=blNoPath, whitelist=wlNoPath), cluster= cl) 
+
+
+cvres2 = bn.cv(DiscAutoEnADNI, "mmhc", runs=10, fit="bayes", loss="logl",  algorithm.args = list(blacklist=blNoPath,  whitelist=wlNoPath), cluster=cl) 
+
+cvres3 = bn.cv(DiscAutoEnADNI, "hc", runs=10, fit="bayes", loss="logl", algorithm.args = list(maxp=5, blacklist=blNoPath,  whitelist=wlNoPath, restart=10, score="bic"), cluster=cl) 
+  
+cvres4 = bn.cv(DiscAutoEnADNI, "tabu", runs=10, fit="bayes", loss="logl", algorithm.args = list(maxp=5, blacklist=blNoPath,  whitelist=wlNoPath, restart=10, score="bic"), cluster=cl)
+  
+cvres5 = bn.cv(DiscAutoEnADNI, "si.hiton.pc", runs=10, fit="bayes", loss="logl", algorithm.args = list(blacklist=blNoPath,  whitelist=wlNoPath, undirected=FALSE),cluster=cl)
+  
+cvres6 = bn.cv(DiscAutoEnADNI, "mmpc", runs=10, fit="bayes", loss="logl", algorithm.args = list(blacklist=blNoPath, whitelist=wlNoPath, undirected=FALSE), cluster=cl)
+
+png("FinalResults/logLikelihoodCVNov.png", width = 8, height = 8, units = 'in', res = 600)
+plot(cvres1, cvres2, cvres3, cvres4, cvres5, cvres6, xlab=c("rsmax2", "mmhc", "hc", "tabu","si.hiton.pc", "mmpc"))
+dev.off()
+
+
+boot.stren = boot.strength(DiscAutoEnADNI, algorithm="tabu", R=1000, algorithm.args = list(maxp=5, blacklist=blNoPath, whitelist=wlNoPath, restart=50, score="bic"), cluster=cl)
+finalBN = tabu(DiscAutoEnADNI, maxp=5, blacklist=blNoPath,  whitelist=wlNoPath, restart=50, score="bic")
+stopCluster(cl)
+  
+thresh = 0.1
+bn.av = averaged.network(boot.stren, threshold = thresh)
+  
+boot.strenwithThreshold = boot.stren[boot.stren$strength >= 0.1 & boot.stren$direction >= 0.5, ]
+boot.strenwithThresholdVisual <- boot.strenwithThreshold
+boot.strenwithThresholdVisual <- boot.strenwithThresholdVisual[!grepl(".*\\.aux.*",boot.strenwithThresholdVisual$from),]
+boot.strenwithThreshold <- as.data.frame(boot.strenwithThreshold)
+boot.strenwithoutThreshold = boot.stren[boot.stren$strength > 0 & boot.stren$direction >= 0.5, ]
+
+finalBNarcs <- as.data.frame(finalBN$arcs)
+finalBNarcsVisual <- finalBNarcs
+finalBNarcsVisual <- finalBNarcsVisual[!grepl(".*\\.aux.*",finalBNarcsVisual$from),]
+finalBNarcsVisual$strength <- ""
+finalBNarcsVisual$direction <- ""
+
+##finding the overlap between two dataframes##
+boot.strenwithThresholdVisual$Overlap <- ifelse(is.na(match(paste0(boot.strenwithThresholdVisual$from, boot.strenwithThresholdVisual$to), paste0(finalBNarcsVisual$from, finalBNarcsVisual$to))),"OnlyInBootStrapped", "Overlap")
+
+
+finalBNarcsVisual$Overlap <- ifelse(is.na(match(paste0(finalBNarcsVisual$from, finalBNarcsVisual$to), paste0(boot.strenwithThresholdVisual$from, boot.strenwithThresholdVisual$to))),"OnlyInfinalBN", "Overlap")
+
+combiOverlap <- rbind.data.frame(boot.strenwithThresholdVisual, finalBNarcsVisual[which(finalBNarcsVisual$Overlap=="OnlyInfinalBN"),])
+combiOverlap$strength <- as.numeric(combiOverlap$strength )
+combiOverlapNew <- combiOverlap
+
+
+print("bayesian network")
+fitted = bn.fit(finalBN, DiscAutoEnADNI, method = "bayes")
+
+##graph between threshold and edges of the network##
+threshold.edges.df <-  data.frame("Threshold" = c(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1))
+for(i in 1:nrow(threshold.edges.df)){
+  thresh = threshold.edges.df[i,1]
+  threshold.edges.df[i,"Edges"] <- nrow(boot.stren[boot.stren$strength >= thresh & boot.stren$direction >=thresh, ])
+}
+
+barplot(threshold.edges.df$Edges, names.arg = threshold.edges.df$Threshold, xlab = "Threshold", ylab= "Number of edges", ylim = c(0,50))
+
+save.image("~/bnCreation.RData")
+```
+
+##ECDF plots
+```{r}
+library(ggplot2)
+boot.stren_df = as.data.frame(boot.stren)
+ggplot(boot.stren_df, aes(strength)) + stat_ecdf(geom = "step") +labs(title="Empirical Cumulative Density Function", y = "Threshold", x="Edges")+theme_classic()
+```
+
