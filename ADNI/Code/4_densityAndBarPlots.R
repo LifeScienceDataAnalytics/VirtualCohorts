@@ -56,11 +56,12 @@ dfCog <- PredObs(dfCogpred)
 cogBar <- dfCog
 ##For density plot                                                                                                                         
 dfCog$Values <- as.numeric(dfCog$Values)                                                                                                                     
-                                         
+
 ###brain####
 dfBrainpred <- totalPat[,GetBrain]
 dfBrain <- PredObs(dfBrainpred)
 brainBar <- dfBrain
+
 ##For density plot   
 dfBrain$Values <- as.numeric(dfBrain$Values)
 
@@ -68,6 +69,7 @@ dfBrain$Values <- as.numeric(dfBrain$Values)
 dfCorticalPred <- totalPat[,GetCortical]
 dfCort <- PredObs(dfCorticalPred)
 cortBar <- dfCort
+
 ##For density plot   
 dfCort$Values <- as.numeric(dfCort$Values)
 
@@ -156,39 +158,13 @@ dfAll$Values <- as.numeric(dfAll$Values)
 
 names(dfAll)[3] <- "variable"
 names(dfAll)[1] <- "value"
-png(file = "/output/densityADNI.png",
+png(file = "output/densityADNI.png",
     width = 12, height = 8, units = 'in', res = 300)
 ggplot(data = dfAll, aes(value,colour=Category)) +  facet_wrap(~ variable, scales = "free") +theme(strip.text.x = element_text(size=4)) + geom_density()+theme_classic() + theme(axis.text = element_text(size=10),
                                                                                                                                                                                  axis.text.x = element_text(size = 10),
                                                                                                                                                                                  axis.title = element_text(size = 10, face = "bold"),
                                                                                                                                                                                  strip.text = element_text(size = 10))  
 dev.off()
-
-
-##mutual informartion between real and virtual subjects##
-library(infotheo)
-auxVar <- grep("aux", colnames(real), value = TRUE)
-features <- setdiff(colnames(real), auxVar)
-miDf <- data.frame()
-for(name in features){
-  mi <- mutinformation(real[,name], simulated[,name], method="emp")
-  miDf<-  rbind(miDf, data.frame(name, mi))
-}
-
-
-
-if (!requireNamespace("BiocManager", quietly = TRUE))
-  install.packages("BiocManager")
-BiocManager::install("maigesPack")
-library(maigesPack)
-
-
-pValueDf = data.frame()
-for(name in features){
-  pVal <- bootstrapMI(as.numeric(real[,name]), as.numeric(simulated[,name]), bRep=1000, ret="p-value")
-  pValueDf = rbind(pValueDf, data.frame(name, pVal))
-}
-pValADNI <- pValueDf
 
 ##for histogram
 ##changing the values in time column according to the group##
@@ -206,9 +182,9 @@ raceBar$time = "Race"
 ageBar$time = "Age"
 snpBar$time = "SNP"
 dfAllBar <- rbind.data.frame(dxBar, cogBar, brainBar, cortBar, csfBar, fdgBar, eduBar, genBar, ethBar,
-                          marBar, raceBar, ageBar, snpBar)
+                             marBar, raceBar, ageBar, snpBar)
 names(dfAllBar)[3] <- "variable"
-dfAllBar$variable <- as.factor(dfAll$variable)
+dfAllBar$variable <- as.factor(dfAllBar$variable)
 names(dfAllBar)[1] <- "value"
 
 names(pValADNI)[2] = "variable"
@@ -226,14 +202,39 @@ pValADNICp <- as.list(pValADNICp)
 variable_labeller <- function(variable,value){
   return(pValADNICp[value])
 }
-png(file = "/output/barPlotADNI.png",
+dfAllBar$variable = factor(dfAllBar$variable, levels= pValADNI$variable)
+png(file = "output/barPlotADNI.png",
     width = 15, height = 13, units = 'in', res = 300)
 ggplot(data = dfAllBar, aes(value,fill=Category, colour=Category)) +  facet_wrap(~ variable, scales = "free", labeller = variable_labeller) +theme(strip.text.x = element_text(size=4)) + geom_histogram(position="dodge",stat="count")+theme_classic() + theme(axis.text = element_text(size=10),
-                                                                                                                                                                                 axis.text.x = element_text(size = 10,  angle=90, hjust = 1),
-                                                                                                                                                                                 axis.title = element_text(size = 10, face = "bold"),
-                                                                                                                                                                                 strip.text = element_text(size = 10))
+                                                                                                                                                                                                                                                                axis.text.x = element_text(size = 10,  angle=90, hjust = 1),
+                                                                                                                                                                                                                                                                axis.title = element_text(size = 10, face = "bold"),
+                                                                                                                                                                                                                                                                strip.text = element_text(size = 10))
 
 
 
 dev.off()
+
+##mutual informartion between real and virtual subjects##
+library(infotheo)
+auxVar <- grep("aux", colnames(real), value = TRUE)
+features <- setdiff(colnames(real), auxVar)
+miDf <- data.frame()
+for(name in features){
+  mi <- mutinformation(real[,name], simulated[,name], method="emp")
+  miDf<-  rbind(miDf, data.frame(name, mi))
+}
+
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+BiocManager::install("maigesPack")
+library(maigesPack)
+
+
+pValueDf = data.frame()
+for(name in features){
+  pVal <- bootstrapMI(as.numeric(real[,name]), as.numeric(simulated[,name]), bRep=1000, ret="p-value")
+  pValueDf = rbind(pValueDf, data.frame(name, pVal))
+}
+
 
