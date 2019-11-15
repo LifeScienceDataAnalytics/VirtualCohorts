@@ -1,4 +1,4 @@
-load("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature/Workspace/stable_network.RData")
+load("~/stable_network.RData")
 rm( list = setdiff(ls() , c("disc_meta", "dt_bl", "dt_wl","dics_data" ) ))
 library(randomForest)
 library(bnlearn)
@@ -139,7 +139,7 @@ load("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFe
 rm( list = setdiff( ls() , c("disc_meta", "dics_data" , "disc_bnlearn", "get_bl_wl","finalBN" , "discPCA2", "dt_wl", "dt_wl" ,"bnoutput_mean")))
 library(randomForestSRC)
 library(pROC)
-#load("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/bitcluster/ClusteringandBN/stable_network_cluster.RData")
+#load("~/stable_network_cluster.RData")
 
 ## Simulate virtual patients 
 simulated = rbn(finalBN, n = 362, discPCA2, fit = "bayes", debug = FALSE)
@@ -222,7 +222,7 @@ set.seed(2529)
 aucplot <- ggplot(test_d, aes(d = D, m = M1)) + geom_roc() + style_roc()
 
 # workspace 
-#save.image("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature/Workspace/3_VirtualPatient_211.RData")
+#save.image("~/3_VirtualPatient_211.RData")
 #========= MCA plot =======================
 
 # Apply MCA
@@ -259,7 +259,7 @@ plot.MCA(res.mca,invisible=c("var"))
 #################################################################################################################
 library(reshape2)
 # Generative method
-#load("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature/Workspace/3_VirtualPatient_120.RData")
+#load("~/3_VirtualPatient_120.RData")
 load("~/Documents/PhDWork/BayesianNetworkAD/CodeAndResultsforPaper/PPMI/Workspace/3_VirtualPatient_120.RData")
 rm( list = setdiff(ls() , c("dics_data", "dt_bl", "dt_wl","real", "RealPep", "VirtPep" ) ))
 xorig = real[1:362,]
@@ -309,15 +309,14 @@ x_xorig_Bar$variable = sub("Patient_", "", x_xorig_Bar$variable)
 x_xorig_Bar$variable = sub("UPDRS_", "", x_xorig_Bar$variable)
 x_xorig_Bar$variable = sub("RBD_", "", x_xorig_Bar$variable)
 x_xorig_Bar <- x_xorig_Bar[order(x_xorig_Bar$variable),]
-x_xorig_Bar$variable = factor(x_xorig_Bar$variable, levels=c((setdiff(unique(x_xorig_Bar$variable), "Imaging_V00")), "Imaging_V00"))
 
-png("/Users/Meems/Documents/PhDWork/BayesianNetworkAD/CodeAndResultsforPaper/PaperRevisions/Variable_density_generative_1.png", width = 32, height = 22, units = 'in', res = 600)
+png("/output/Variable_density_generative_1.png", width = 32, height = 22, units = 'in', res = 600)
 ggplot(data = x_xorig, aes(value,colour=Category)) +  facet_wrap(~ variable, scales = "free") +theme(strip.text.x = element_text(size=4)) + geom_density()+theme_classic()          
 dev.off()   
 
 ##mutual informartion between real and virtual subjects##
 library(infotheo)
-load("~/Documents/PhDWork/BayesianNetworkAD/CodeAndResultsforPaper/PPMI/Workspace/3_VirtualPatient_120.RData")
+load("~/3_VirtualPatient_120.RData")
 rm( list = setdiff(ls() , c("dics_data", "dt_bl", "dt_wl","real", "RealPep", "VirtPep")))
 RealPep$typeOfPatient <- NULL
 VirtPep$typeOfPatient <- NULL
@@ -330,7 +329,7 @@ for(name in features){
   miDf <-  rbind(miDf, data.frame(name, mi))
 }
 
-write.csv(miDf,"~/Documents/PhDWork/BayesianNetworkAD/CodeAndResultsforPaper/PaperRevisions/PPMI/mutualInfoPPMI.csv")
+
 
 library(maigesPack)
 RealPepCp <- RealPep
@@ -345,18 +344,17 @@ for(name in features){
   pValueDf = rbind(pValueDf, data.frame(name, pVal))
 }
 
-write.csv(pValueDf,"~/Documents/PhDWork/BayesianNetworkAD/CodeAndResultsforPaper/PaperRevisions/PPMI/pValPPMI.csv")
 
 names(pValPPMI)[2] = "variable"
+pValPPMI$variable <- as.factor(pValPPMI$variable)
+pValPPMI$variable = sub("Patient_", "", pValPPMI$variable)
+pValPPMI$variable = sub("UPDRS_", "", pValPPMI$variable)
+pValPPMI$variable = sub("RBD_", "", pValPPMI$variable)
 pValPPMI$X1 <- NULL
-pValPPMI$variable <- as.factor(pValPPMI$variable )
-pValPPMI$variable = levels(x_xorig_Bar$variable)
+x <- as.character(pValPPMI$variable) == "Imaging_V00"
+pValPPMI = rbind(pValPPMI[!x,], pValPPMI[x,])
 pValPPMICp <- pValPPMI
-pValPPMICp$variable = as.character(pValPPMICp$variable)
-pValPPMICp$variable = sub("Patient_", "", pValPPMICp$variable)
-pValPPMICp$variable = sub("UPDRS_", "", pValPPMICp$variable)
-pValPPMICp$variable = sub("RBD_", "", pValPPMICp$variable)
-pValPPMICp$pVal <- paste(pValPPMICp$variable, ", ", "pval=", pValPPMICp$pVal, sep = "")
+pValPPMICp$pVal <- paste(pValPPMI$variable, ", ", "pval=", pValPPMICp$pVal, sep = "")
 colnames(pValPPMICp) <- pValPPMICp[1,]
 pValPPMICp <- t(pValPPMICp)
 pValPPMICp <- as.data.frame(pValPPMICp)
@@ -365,7 +363,9 @@ pValPPMICp <- as.list(pValPPMICp)
 variable_labeller <- function(variable,value){
   return(pValPPMICp[value])
 }
-png("/Users/Meems/Documents/PhDWork/BayesianNetworkAD/CodeAndResultsforPaper/PaperRevisions/Variable_histogram_generative_1.png", width = 32, height = 22, units = 'in', res = 600)
+x_xorig_Bar$variable = factor(x_xorig_Bar$variable, levels= pValPPMI$variable)
+
+png("/output/Variable_histogram_generative_1.png", width = 32, height = 22, units = 'in', res = 600)
 ggplot(data = x_xorig_Bar, aes(value,fill=Category, colour=Category)) +  facet_wrap(~ variable, scales = "free", labeller = variable_labeller)+theme(strip.text.x = element_text(size=4)) +geom_histogram(position="dodge",stat="count")+theme_classic() + theme(axis.text = element_text(size=10),
                                                                                                                                                                                                                                 axis.text.x = element_text(size = 10,  angle=90, hjust = 1),
                                                                                                                                                                                                                                   axis.title = element_text(size = 10, face = "bold"),
@@ -383,7 +383,7 @@ dev.off()
 
 # =========== NOT Generative method =======================
 #load("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature/Workspace/3_VirtualPatient_211.RData")
-load("~/Documents/PhDWork/BayesianNetworkAD/CodeAndResultsforPaper/PPMI/Workspace/3_VirtualPatient_211.RData")
+load("~/3_VirtualPatient_211.RData")
 rm(list = setdiff(ls() , c("dics_data", "dt_bl", "dt_wl","real","real","virtual")))
 xorig = real
 xsimulated = virtual
@@ -421,12 +421,12 @@ png("Variable_density_Not_generative.png", width = 12, height = 12, units = 'in'
 ggplot(data = x_xorig, aes(value,colour=Category)) +  facet_wrap(~ variable, scales = "free") +theme(strip.text.x = element_text(size=4)) + geom_density()+theme_classic()          
 dev.off()  
 #===== make side by side plot======
-load("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature/Workspace/generativeVP.RData")
+load("~/generativeVP.RData")
 generative_aucplot = aucplot
 generative_bx = bx
 generative_mca_plot = mca_plot
 
-load("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature/Workspace/not_generativeVP.RData")
+load("~/not_generativeVP.RData")
 
 ggsave("boxplot_auc", arrangeGrob(aucplot, generative_aucplot))
 
