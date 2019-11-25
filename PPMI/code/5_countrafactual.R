@@ -1,6 +1,5 @@
-load("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature/Workspace/stable_network.RData")
-source('~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature/Code/main.R', echo=TRUE)
-load("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature/Workspace/Imputeddata_500.RData")
+source('./Code/utility.R', echo=FALSE)
+
 #Change CSF value
 
 CSF_90 = select(all_visit, setdiff(grep("CSF", colnames(all_visit), value = TRUE), grep("aux",grep("CSF", colnames(all_visit), value = TRUE), value = TRUE)) )
@@ -88,10 +87,7 @@ for (i in 1:length(plot_list)) {
 # ========================== ========================== ========================== ==========================
 #   Countrafactual age
 # ========================== ========================== ========================== ==========================
-
-load("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature/Workspace/stable_network.RData")
-source('~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature/Code/main.R', echo=TRUE)
-load("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature/Workspace/Imputeddata_500.RData")
+source('./Code/utility.R', echo=FALSE)
 rm( list = setdiff(ls() , c("disc_meta", "dt_bl", "dt_wl","dics_data" ,"discPCA2","finalBN","all_visit") ))
 
 

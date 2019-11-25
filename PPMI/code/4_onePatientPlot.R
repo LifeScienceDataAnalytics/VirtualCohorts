@@ -1,5 +1,4 @@
-load("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature/Workspace/stable_network.RData")
-source('~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature/Code/main.R', echo=TRUE)
+source('./Code/utility.R', echo=FALSE)
 
 train1 =  dics_data[-4,]
 test1 = dics_data[4,]
@@ -12,11 +11,7 @@ fitted_grain = as.grain(fitted)
 prediction_fold = setNames(data.frame(matrix(ncol = 3, nrow = 0)),  c( "Feature","Values", "Class" ))
 
 sequence_prediction_one = function(grep_to_predict, grep_predictors , fitted_grain ,test1 ){
-  # Prediction - save visit wise and later combine them
-  # grep_to_predict = "_BL" # node to predict
-  # grep_predictors = "Patient_|SNP_"  # predictor
-  
-  
+
   nodes_predict= setdiff(grep(grep_to_predict, colnames(train1) , value = TRUE) , grep("aux_", colnames(train1) , value = TRUE))
   #nodes_predict = setdiff(nodes_predict, "Patient_RABLACK")
   predictors_var = grep(grep_predictors, colnames(train1) , value = TRUE)
@@ -109,9 +104,3 @@ ggplot(this_fold_one, aes(Node, prob)) +
   geom_bar(stat="identity" , color = this_fold_one$level,position = "dodge2") + 
   geom_text(aes(label=level), vjust=0.5, check_overlap = TRUE, position = position_nudge(x = 8,y = 0))
 dev.off()
-
-
-
-#  save.image("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/bitcluster/GMM_bn/generativeBN_185.RData")
-#  load("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/bitcluster/GMM_bn/generativeBN_185.RData")
-rm( list = setdiff(ls() , c("disc_meta", "dt_bl", "dt_wl" , "real", "realCopy", "final_VP_BN" , "boot.stren","this_fold_one") ))

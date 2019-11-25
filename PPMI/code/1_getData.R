@@ -1,5 +1,9 @@
-setwd("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature")
-source('~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature/Code/main.R', echo=FALSE)
+# This is code to written towards Master's thesis titled "Development of longitudinal Bayesian Network
+# Model for Parkinson's disease and simulation of virtual cohort using multi-modal data"
+# Code developed by Akrishta Sahay under supervision of Prof. Dr. Holger Frohlic.
+
+
+source('./Code/utility.R', echo=FALSE)
 library(parallel)
 library(dplyr)
 library(missForest)
@@ -522,7 +526,6 @@ colnames(visit11) = gsub(".V11", "_V11", colnames(visit11))
 aux_col = aux_col[, sapply(aux_col, function(col) length(unique(col))) > 1]
 aux_col = as.data.frame(sapply(aux_col, as.factor))
 allData_meta = cbind(visitbl,visit1,visit2,visit3,visit4,visit5,visit6,visit7,visit8,visit9,visit10,visit11,Patient_data,aux_col )
-save(allData_meta, file = "allData_meta.RData")
 
 
 

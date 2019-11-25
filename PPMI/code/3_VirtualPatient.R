@@ -1,5 +1,3 @@
-load("~/stable_network.RData")
-rm( list = setdiff(ls() , c("disc_meta", "dt_bl", "dt_wl","dics_data" ) ))
 library(randomForest)
 library(bnlearn)
 library(ggplot2)
@@ -23,9 +21,6 @@ while(!converged & iter <= 100){
   
   y = factor(c(rep("original", NROW(realCopy)), rep("generated", NROW(generatedDF) + NROW(real) - NROW(realCopy))))
   df = data.frame(y=y, x=rbind(real, generatedDF))
-  #fit = randomForest(y ~ ., data=df, classwt=c("original" = 1000, "generated" = 1), ntree = 500)
-  #fit = tuneRF(df,y, stepFactor=1.5, improve=1e-5, ntree=500,doBest = TRUE)
-  #fit <- rfsrc(y ~ ., data = df, case.wt = c(rep(1,sum(y =="original")), rep(0.2, sum(y== "generated")))   )
   fit = rfsrc(y ~ ., data=df, case.wt=c(rep(1,sum(y=="original")), rep(0.2*sum(y=="original")/sum(y=="generated"), sum(y=="generated"))))
   print(fit)
   
@@ -48,10 +43,6 @@ test_d = setNames(data.frame(matrix(ncol = 4, nrow = 0)), c("D","D.str","M1","M2
 # 
 RealPep = real[1:362,] 
 VirtPep = real[362:nrow(real),]  
-
-# RealPep = as.data.frame(sapply(real, as.numeric))
-# VirtPep  =  as.data.frame(sapply(virtual , as.numeric))
-
 
 rownames(RealPep) = paste0("R", 1:nrow(RealPep))
 rownames(VirtPep) = paste0("V", 1:nrow(VirtPep))
@@ -131,15 +122,11 @@ mca_plot = fviz_mca_biplot(res.mca,
                 ggtheme = theme_minimal(),habillage = allPep$typeOfPatient,palette = c("#00AFBB", "#E7B800","#ff0000"), invisible=c("var"))
 
 plot.MCA(res.mca,invisible=c("var"))
-
-#https://cran.r-project.org/web/packages/plotROC/vignettes/examples.html      
+    
 ################################################################################################################
 ################# Simulate using rbn() with adding more patients ######################################
-load("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature/Workspace/stable_network.RData")
-rm( list = setdiff( ls() , c("disc_meta", "dics_data" , "disc_bnlearn", "get_bl_wl","finalBN" , "discPCA2", "dt_wl", "dt_wl" ,"bnoutput_mean")))
 library(randomForestSRC)
 library(pROC)
-#load("~/stable_network_cluster.RData")
 
 ## Simulate virtual patients 
 simulated = rbn(finalBN, n = 362, discPCA2, fit = "bayes", debug = FALSE)
@@ -221,8 +208,6 @@ library(plotROC)
 set.seed(2529)
 aucplot <- ggplot(test_d, aes(d = D, m = M1)) + geom_roc() + style_roc()
 
-# workspace 
-#save.image("~/3_VirtualPatient_211.RData")
 #========= MCA plot =======================
 
 # Apply MCA
@@ -237,7 +222,6 @@ all_subject$typeOfPatient = as.factor(all_subject$typeOfPatient)
 
 res.mca =  MCA(all_subject, graph = FALSE)
 # visualize plots to see outliers 
-#The function fviz_mca_biplot() [factoextra package] is used to draw the biplot of individuals and variable categories:
 
 fviz_mca_biplot(res.mca, 
                 repel = TRUE, # Avoid text overlapping (slow if many point)
@@ -259,9 +243,7 @@ plot.MCA(res.mca,invisible=c("var"))
 #################################################################################################################
 library(reshape2)
 # Generative method
-#load("~/3_VirtualPatient_120.RData")
-load("~/Documents/PhDWork/BayesianNetworkAD/CodeAndResultsforPaper/PPMI/Workspace/3_VirtualPatient_120.RData")
-rm( list = setdiff(ls() , c("dics_data", "dt_bl", "dt_wl","real", "RealPep", "VirtPep" ) ))
+
 xorig = real[1:362,]
 xsimulated = real[362:nrow(real),]
 xsimulated = xsimulated[1:362,]
@@ -382,9 +364,7 @@ ggplot(data = x_xorig_Bar, aes(value,fill=Category, colour=Category)) +  facet_w
 dev.off()
 
 # =========== NOT Generative method =======================
-#load("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature/Workspace/3_VirtualPatient_211.RData")
-load("~/3_VirtualPatient_211.RData")
-rm(list = setdiff(ls() , c("dics_data", "dt_bl", "dt_wl","real","real","virtual")))
+
 xorig = real
 xsimulated = virtual
 
@@ -396,7 +376,6 @@ xorig <- xorig[, ! colnames(xorig) %in% remove_row ]
 remove_row2 = grep("aux", colnames(xsimulated) , value = TRUE)
 xsimulated <- xsimulated[, ! colnames(xsimulated) %in% remove_row2 ]
 
-#print(setdiff(colnames(xorig), colnames(xsimulated)))
 
 # Reshape
 xorig = as.data.frame(sapply(xorig, as.numeric))
@@ -426,9 +405,6 @@ generative_aucplot = aucplot
 generative_bx = bx
 generative_mca_plot = mca_plot
 
-load("~/not_generativeVP.RData")
-
-ggsave("boxplot_auc", arrangeGrob(aucplot, generative_aucplot))
 
 
 require(gridExtra)
