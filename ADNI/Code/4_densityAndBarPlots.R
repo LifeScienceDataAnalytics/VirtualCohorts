@@ -167,6 +167,22 @@ ggplot(data = dfAll, aes(value,colour=Category)) +  facet_wrap(~ variable, scale
 dev.off()
 
 ##for histogram
+## first perform chi square test, and calculate adjusted p values using bonferroni correction
+auxVar <- grep("aux", colnames(real), value = TRUE)
+features <- setdiff(colnames(real), auxVar)
+chiDf <- data.frame()
+library(entropy)
+for(name in features){
+  print(name)
+  df <- rbind(table(real[,name]), table(simulated[,name]))
+  chiSQ =  chisq.test(df)
+  chiDf <-  rbind(chiDf, data.frame(name, p.value = chiSQ$p.value))
+  df <- NULL
+}
+
+chiDf$adj.p = p.adjust(chiDf$p.value, method = "bonferroni", n = length(chiDf$p.value))
+
+
 ##changing the values in time column according to the group##
 dxBar$time = paste("DX", dxBar$time, sep = ".")
 cogBar$time = paste("Cog", cogBar$time, sep = ".")
@@ -188,53 +204,112 @@ dfAllBar$variable <- as.factor(dfAllBar$variable)
 names(dfAllBar)[1] <- "value"
 
 names(pValADNI)[2] = "variable"
-pValADNI$X1 <- NULL
-pValADNI$variable <- as.factor(pValADNI$variable )
-pValADNI$variable = levels(dfAllBar$variable)
-pValADNICp <- pValADNI
-pValADNICp$variable = as.character(pValADNICp$variable)
-pValADNICp$pVal <- paste(pValADNICp$variable, ", ", "pval=", pValADNICp$pVal, sep = "")
-colnames(pValADNICp) <- pValADNICp[1,]
-pValADNICp <- t(pValADNICp)
-pValADNICp <- as.data.frame(pValADNICp)
-pValADNICp <- pValADNICp[-1,]
-pValADNICp <- as.list(pValADNICp)
-variable_labeller <- function(variable,value){
-  return(pValADNICp[value])
-}
-dfAllBar$variable = factor(dfAllBar$variable, levels= pValADNI$variable)
-png(file = "output/barPlotADNI.png",
-    width = 15, height = 13, units = 'in', res = 300)
-ggplot(data = dfAllBar, aes(value,fill=Category, colour=Category)) +  facet_wrap(~ variable, scales = "free", labeller = variable_labeller) +theme(strip.text.x = element_text(size=4)) + geom_histogram(position="dodge",stat="count")+theme_classic() + theme(axis.text = element_text(size=10),
-                                                                                                                                                                                                                                                                axis.text.x = element_text(size = 10,  angle=90, hjust = 1),
-                                                                                                                                                                                                                                                                axis.title = element_text(size = 10, face = "bold"),
-                                                                                                                                                                                                                                                                strip.text = element_text(size = 10))
 
+##trace back the ranges of factor values for each variable
+decimalnumcount<-function(x){
+  x<-gsub("(.*)(\\.)|([0]*$)","",x)
+  nchar(x)
+}
+disc <- meta_rf
+names(disc)[12] <- "AGE.bl"
+names(disc)[13] <- "FDG.bl"
+dfMerge <- data.frame()
+for(names in colnames(disc)){
+  new_dat <- data.frame()
+  #print(names)
+  sr = sort(create_breaks(disc[,names], input_df[,"DX.bl"], method="dt"), decreasing = FALSE)
+  #print(sr)
+  mn <- data.frame()
+  if(length(sr) == 1){
+    mn[1,"value"] <- 1
+    mn[1, "valueRange"] <-  paste("<=", round(sr, digits = 4), sep = "")
+    mn[1, "variable"] <- names
+    mn[2,"value"] <- 2
+    mn[2, "valueRange"] <-  paste(">", round(sr, digits = 4), sep = "")
+    mn[2, "variable"] <- names
+    new_dat <- mn
+  }
+
+  if(length(sr) > 1) {
+    print(names)
+    disc[,names] <- create_bins(disc[,names], sr)
+    print(sr)
+    mn <- data.frame()
+    for(j in 1:length(sr)){
+      print(j)
+      mn[j,"value"] <- j+1
+      mn[j, "valueRange"] <- paste((round(sr[j], digits = 4)) + (as.numeric(paste(0,".", strrep(0, decimalnumcount(round(sr[j], digits = 4)-1)), "1", sep =""))), "-", round(sr[j+1], digits = 4), sep="")
+      mn[j, "variable"] <- names
+  }
+  new_dat <- rbind(c(1, paste("<=", round(sr[1],digits = 4), sep ="")), mn)
+  new_dat[1, "variable"] <- names
+  new_dat[length(table(disc[,names])),"valueRange"] <-  paste(">=", round(sr[length(sr)],digits = 4), sep ="")
+  print(new_dat[, "valueRange"])
+  }
+  new_dat$valueRange <- factor(new_dat$valueRange, levels = new_dat$valueRange[order(new_dat$value)])
+  dfMerge <- rbind.data.frame(dfMerge, new_dat)
+} 
+
+sameValues <- setdiff(unique(dfAllBar$variable), unique(dfMerge$variable))
+dfAllNoCateog <- dfAllBar[!dfAllBar$variable %in% sameValues,]
+dfAllCateog <- subset(dfAllBar, dfAllBar$variable %in% sameValues)
+dfAllCateog$valueRange <- dfAllCateog$value
+dfMergeAll1 <- join(dfMerge, dfAllNoCateog)
+dfMergeAll1 <- dfMergeAll1[names(dfAllCateog)]
+dfMergeAll2 <- rbind.data.frame(dfMergeAll1, dfAllCateog)
+dfMergeAll2$value <- as.factor(dfMergeAll2$value)
+
+setDT(dfAllBar)[setDT(dfMergeAll2), valueRange := i.valueRange, on=c("value", "Category", "variable")]
+dfAllBar$variable = factor(dfAllBar$variable, levels= unique(dfAllBar$variable))
+
+chiDf$adj.p <- round(chiDf$adj.p, digits = 4)
+chiDf$adj.p[chiDf$adj.p<0.001] <- "<0.001"
+
+
+chiDf[chiDf=="PTEDUCAT.bl"]<-"Education"
+chiDf[chiDf=="PTGENDER.bl"]<-"Gender"
+chiDf[chiDf=="PTETHCAT.bl"]<-"Ethnicity"
+chiDf[chiDf=="PTMARRY.bl"]<-"Marital Status"
+chiDf[chiDf=="PTRACCAT.bl"]<-"Race"
+chiDf$name <- factor(chiDf$name, levels =unique(as.character(dfAllBar$variable)))
+chiDf <- chiDf[order(chiDf$name),]
+adjpValADNI <- chiDf
+adjpValADNI$p.value <- NULL
+names(adjpValADNI)[2] = "variable"
+adjpValADNI$X1 <- NULL
+adjpValADNI$variable <- factor(adjpValADNI$variable)
+adjpValADNICp <- adjpValADNI
+adjpValADNICp$variable = as.character(adjpValADNICp$variable)
+adjpValADNICp$adj.p <- paste(adjpValADNICp$variable, ", ", "adj.p=", adjpValADNICp$adj.p, sep = "")
+adjpValADNICp <- t(adjpValADNICp)
+colnames(adjpValADNICp) <- adjpValADNICp[1,]
+adjpValADNICp <- as.data.frame(adjpValADNICp)
+adjpValADNICp <- adjpValADNICp[-1,]
+adjpValADNICp <- as.list(adjpValADNICp)
+variable_labeller <- function(variable,value){
+  return(adjpValADNICp[value])
+}
+
+require(data.table)
+
+png(file = "/Users/Meems/Documents/PhDWork/BayesianNetworkAD/CodeAndResultsforPaper/PaperRevisions/barPlotADNI_Vs5.png",
+    width = 20, height = 20, units = 'in', res = 300)
+p <- ggplot(data = dfAllBar, aes(valueRange, fill = Category, colour=Category)) + geom_histogram(aes(y = (..count..)/sum(..count..)),position="dodge",stat="count") +theme_classic() + theme(legend.title = element_text(face = "bold", size = 14),
+                                                                                                                                                                                 legend.text=element_text(size=12),
+                                                                                                                                                                                 axis.text = element_text(size=14),
+                                                                                                                                                                                 axis.text.x = element_text(size = 14,  angle=90, hjust = 1),
+                                                                                                                                                                                 axis.text.y = element_text(size = 14),
+                                                                                                                                                                                 axis.title = element_text(size = 14, face = "bold"),
+                                                                                                                                                                                 strip.text = element_text(size = 14))
+p1 <- p + facet_wrap(~ variable, scales = "free", labeller=variable_labeller) +theme(strip.text.x = element_text(size=14, face = "bold"),
+                                                                               strip.background = element_rect(
+                                                                                 color="black", size=1.5, linetype="solid"
+                                                                               )) + theme(panel.spacing = unit(1, "lines"))
+
+p1 + labs(x = "Values", y = "Relative Frequencies") + theme(axis.text=element_text(size=14)) 
 
 
 dev.off()
 
-##mutual informartion between real and virtual subjects##
-library(infotheo)
-auxVar <- grep("aux", colnames(real), value = TRUE)
-features <- setdiff(colnames(real), auxVar)
-miDf <- data.frame()
-for(name in features){
-  mi <- mutinformation(real[,name], simulated[,name], method="emp")
-  miDf<-  rbind(miDf, data.frame(name, mi))
-}
-
-
-if (!requireNamespace("BiocManager", quietly = TRUE))
-  install.packages("BiocManager")
-BiocManager::install("maigesPack")
-library(maigesPack)
-
-
-pValueDf = data.frame()
-for(name in features){
-  pVal <- bootstrapMI(as.numeric(real[,name]), as.numeric(simulated[,name]), bRep=1000, ret="p-value")
-  pValueDf = rbind(pValueDf, data.frame(name, pVal))
-}
 
 
