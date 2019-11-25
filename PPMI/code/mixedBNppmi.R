@@ -1,9 +1,9 @@
-load("~/Documents/PhDWork/BayesianNetworkAD/CodeAndResultsforPaper/PPMI/Workspace/allData_meta.RData")
+
 meta_ppmi <- allData_meta
 
 names(meta_ppmi)[names(meta_ppmi) == 'Patient_Demographic_V00'] <- 'Patient_Demographic'
 names(meta_ppmi)[names(meta_ppmi) == 'Patient_PDhistory_V00'] <- 'Patient_PDhistory'
-load("~/Documents/PhDWork/BayesianNetworkAD/CodeAndResultsforPaper/PPMI/Workspace/stable_network.RData")
+
 rm( list = setdiff(ls() , c("meta_ppmi", "dt_bl", "dt_wl" ) ))
 library(randomForest)
 library(bnlearn)
