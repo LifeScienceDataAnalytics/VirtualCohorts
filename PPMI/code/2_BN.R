@@ -1,5 +1,3 @@
-load("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature/Workspace/allData_meta.RData")
-source('~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature/Code/main.R', echo=FALSE)
 library(mclust)
 library(binst)
 library(dplyr)
