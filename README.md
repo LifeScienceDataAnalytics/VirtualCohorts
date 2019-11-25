@@ -11,9 +11,11 @@ ADNI
 * 6_hybridBNCreation.R: generation of hybrid bayesian network and comparison with the one generated using dicrete data
 
 
-PPMI
+PPMI 
 
-* utility.R : functions used in data analysis pipeline
+* utility.R: functions used in the data analysis pipeline
 * 1_getData.R: Read, filter and subset longitudinal and non- longitudinal data of PD group from PPMI data
-* 2_BN.R: Data pre-processing for Bayesian Model. This includes data discretinzation, stipulating blacklist and         whitelist, building Bayesian network
-* 3.
+* 2_BN.R: Data pre-processing for Bayesian Model. This includes data discretization, stipulating blacklist and         whitelist, building Bayesian network
+* 3_VirtualPatient.R: Simulation of virtual patients. Classifier to classify virtual and real patients using conservative and non-conservative methods
+* 4_onePatient.R: Sequential prediction of longitudinal variables in bayesian network
+* 5_Counterfactual.R: counterfactual scenario generated for virtual patients by changing the baseline score of PD subject to a normal
