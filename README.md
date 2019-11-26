@@ -8,7 +8,7 @@ ADNI
 * 3_classification.R: classifier to classify virtual and real patients using coonservative and non-conservative methods
 * 4_densityAndBarPlots.R: density and histogram generated for real and virtual patients 
 * 5_counterfactualCognition.R: counterfactual scenario generated for virtual patients by changing the baseline score of demented subject to a normal
-* 6_hybridBNCreation.R: generation of hybrid bayesian network and comparison with the one generated using dicrete data
+* 6_hybridBNCreation.R: generation of hybrid bayesian network and comparison with the one generated using discrete data
 
 
 PPMI 
@@ -19,3 +19,5 @@ PPMI
 * 3_VirtualPatient.R: Simulation of virtual patients. Classifier to classify virtual and real patients using conservative and non-conservative methods
 * 4_onePatient.R: Sequential prediction of longitudinal variables in bayesian network
 * 5_Counterfactual.R: counterfactual scenario generated for virtual patients by changing the baseline score of PD subject to a normal
+* 6_hybridBNCreation.R:generation of hybrid bayesian network and comparison with the one generated using discrete data
+
