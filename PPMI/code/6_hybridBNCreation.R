@@ -1,7 +1,7 @@
 ##Script name: 6_mixedBNppmi.R
 ##Purpose of Script: generation of hybrid bayesian network and comparison with the one generated using discrete data
 ##Author: Meemansa Sood
-##Date Created:October 2018
+##Date Created:October 2019
 
 ##load allData_meta from 1_getData.R
 load("~/allData_meta.RData")
