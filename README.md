@@ -1,5 +1,5 @@
 # VirtualCohorts
-Code for generation of virtual cohorts from Bayesian Network generated on longitudinal data for Azheimer's Disease (AD) and Parkinson's Disease (PD)
+Code for generation of virtual cohorts from Bayesian Network generated on longitudinal data for Azheimer's Disease (AD) and Parkinson's Disease (PD.
 Data used for AD is ADNI and PD is PPMI
 
 ADNI
