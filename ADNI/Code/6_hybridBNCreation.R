@@ -1,3 +1,8 @@
+##Script name: "6_hybridBNCreation.R"
+##Purpose of Script: generation of hybrid bayesian network and comparison with the one generated using dicrete data
+##Author: Meemansa Sood
+##Date Created: October 2019
+
 ##load the data (mixedMeta_rf) before discretization from AutoencodingAndBNCreation.Rmd##
 library(bnlearn)
 library(h2o)
