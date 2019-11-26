@@ -1,7 +1,15 @@
+##Script name: "4_densityAndBarPlots.R"
+##Purpose of Script: density and histogram generated for real and virtual (simulated) patients
+##Author: Meemansa Sood
+##Date Created: October 2018
+
 library(magrittr)
 library(ggpubr)
 library(gridExtra)
+
+##load the workspace from 3_classification.R for conservative approach##
 load("~/conservative.RData")
+
 realPat <- subset(allPep, allPep$typeOfPatient == "1")
 virtPat <- subset(allPep, allPep$typeOfPatient == "0")
 colnames(virtPat) <- paste("Virt", colnames(virtPat), sep = "_")
@@ -158,13 +166,13 @@ dfAll$Values <- as.numeric(dfAll$Values)
 
 names(dfAll)[3] <- "variable"
 names(dfAll)[1] <- "value"
-png(file = "output/densityADNI.png",
-    width = 12, height = 8, units = 'in', res = 300)
+#png(file = "output/densityADNI.png",
+#    width = 12, height = 8, units = 'in', res = 300)
 ggplot(data = dfAll, aes(value,colour=Category)) +  facet_wrap(~ variable, scales = "free") +theme(strip.text.x = element_text(size=4)) + geom_density()+theme_classic() + theme(axis.text = element_text(size=10),
                                                                                                                                                                                  axis.text.x = element_text(size = 10),
                                                                                                                                                                                  axis.title = element_text(size = 10, face = "bold"),
                                                                                                                                                                                  strip.text = element_text(size = 10))  
-dev.off()
+#dev.off()
 
 ##for histogram
 ## first perform chi square test, and calculate adjusted p values using bonferroni correction
@@ -206,6 +214,8 @@ names(dfAllBar)[1] <- "value"
 names(pValADNI)[2] = "variable"
 
 ##trace back the ranges of factor values for each variable
+##loading workspace from 2_AutoencodingAndBNCreation.Rmd
+load("~/bnCreation.RData")
 decimalnumcount<-function(x){
   x<-gsub("(.*)(\\.)|([0]*$)","",x)
   nchar(x)
@@ -229,7 +239,6 @@ for(names in colnames(disc)){
     mn[2, "variable"] <- names
     new_dat <- mn
   }
-
   if(length(sr) > 1) {
     print(names)
     disc[,names] <- create_bins(disc[,names], sr)
@@ -240,11 +249,11 @@ for(names in colnames(disc)){
       mn[j,"value"] <- j+1
       mn[j, "valueRange"] <- paste((round(sr[j], digits = 4)) + (as.numeric(paste(0,".", strrep(0, decimalnumcount(round(sr[j], digits = 4)-1)), "1", sep =""))), "-", round(sr[j+1], digits = 4), sep="")
       mn[j, "variable"] <- names
-  }
-  new_dat <- rbind(c(1, paste("<=", round(sr[1],digits = 4), sep ="")), mn)
-  new_dat[1, "variable"] <- names
-  new_dat[length(table(disc[,names])),"valueRange"] <-  paste(">=", round(sr[length(sr)],digits = 4), sep ="")
-  print(new_dat[, "valueRange"])
+    }
+    new_dat <- rbind(c(1, paste("<=", round(sr[1],digits = 4), sep ="")), mn)
+    new_dat[1, "variable"] <- names
+    new_dat[length(table(disc[,names])),"valueRange"] <-  paste(">=", round(sr[length(sr)],digits = 4), sep ="")
+    print(new_dat[, "valueRange"])
   }
   new_dat$valueRange <- factor(new_dat$valueRange, levels = new_dat$valueRange[order(new_dat$value)])
   dfMerge <- rbind.data.frame(dfMerge, new_dat)
@@ -264,7 +273,6 @@ dfAllBar$variable = factor(dfAllBar$variable, levels= unique(dfAllBar$variable))
 
 chiDf$adj.p <- round(chiDf$adj.p, digits = 4)
 chiDf$adj.p[chiDf$adj.p<0.001] <- "<0.001"
-
 
 chiDf[chiDf=="PTEDUCAT.bl"]<-"Education"
 chiDf[chiDf=="PTGENDER.bl"]<-"Gender"
@@ -292,24 +300,21 @@ variable_labeller <- function(variable,value){
 
 require(data.table)
 
-png(file = "/Users/Meems/Documents/PhDWork/BayesianNetworkAD/CodeAndResultsforPaper/PaperRevisions/barPlotADNI_Vs5.png",
-    width = 20, height = 20, units = 'in', res = 300)
+#png(file = "/barPlotADNI_Vs5.png",
+#    width = 20, height = 20, units = 'in', res = 300)
 p <- ggplot(data = dfAllBar, aes(valueRange, fill = Category, colour=Category)) + geom_histogram(aes(y = (..count..)/sum(..count..)),position="dodge",stat="count") +theme_classic() + theme(legend.title = element_text(face = "bold", size = 14),
-                                                                                                                                                                                 legend.text=element_text(size=12),
-                                                                                                                                                                                 axis.text = element_text(size=14),
-                                                                                                                                                                                 axis.text.x = element_text(size = 14,  angle=90, hjust = 1),
-                                                                                                                                                                                 axis.text.y = element_text(size = 14),
-                                                                                                                                                                                 axis.title = element_text(size = 14, face = "bold"),
-                                                                                                                                                                                 strip.text = element_text(size = 14))
+                                                                                                                                                                                             legend.text=element_text(size=12),
+                                                                                                                                                                                             axis.text = element_text(size=14),
+                                                                                                                                                                                             axis.text.x = element_text(size = 14,  angle=90, hjust = 1),
+                                                                                                                                                                                             axis.text.y = element_text(size = 14),
+                                                                                                                                                                                             axis.title = element_text(size = 14, face = "bold"),
+                                                                                                                                                                                             strip.text = element_text(size = 14))
 p1 <- p + facet_wrap(~ variable, scales = "free", labeller=variable_labeller) +theme(strip.text.x = element_text(size=14, face = "bold"),
-                                                                               strip.background = element_rect(
-                                                                                 color="black", size=1.5, linetype="solid"
-                                                                               )) + theme(panel.spacing = unit(1, "lines"))
+                                                                                     strip.background = element_rect(
+                                                                                       color="black", size=1.5, linetype="solid"
+                                                                                     )) + theme(panel.spacing = unit(1, "lines"))
 
 p1 + labs(x = "Values", y = "Relative Frequencies") + theme(axis.text=element_text(size=14)) 
 
 
-dev.off()
-
-
-
+#sdev.off()
