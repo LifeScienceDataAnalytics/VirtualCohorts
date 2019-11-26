@@ -1,4 +1,9 @@
-#########################contrafactual for cognition####################################
+##Script name: "5_counterfactualCognition.R"
+##Purpose of Script: counterfactual scenario generated for virtual patients by changing the baseline score of demented subject to a normal
+##Author: Meemansa Sood
+##Date Created: October 2018
+
+##load the workspace from 2_AutoencodingAndBNCreation.Rmd
 load("~/bnCreation.RData")
 #load adni data#
 library(h2o)
@@ -163,13 +168,13 @@ PredObs <- function(giveFeatures, DXs){
 
 dfDiag <- PredObs(cog_pred[,GetDxfromCog], c("bl", "m06", "m12", "m24"))  
 
-png(file = "~/output/contraCogDX.png",width = 8, height = 6, units = 'in', res = 300)
+#png(file = "~/contraCogDX.png",width = 8, height = 6, units = 'in', res = 300)
 ggplot(dfDiag,aes(x=Values, group=Category,fill = Category)) + ylab("Fraction of subjects") + xlab("Stages") +
 geom_histogram(aes(y=stat(count/689)),position="dodge", binwidth=0.25, stat="count") +  facet_wrap(~dfDiag$time, scales= "free")  + theme(axis.text = element_text(size=10),
                                                                                                                       axis.text.x = element_text(size = 10, angle=90, hjust=1),
                                                                                                                       axis.title = element_text(size = 10, face = "bold"),
                                                                                                                       strip.text = element_text(size = 10))
 
-dev.off()
+#dev.off()
 save.image("~/counterfactualCognition.RData")
 
