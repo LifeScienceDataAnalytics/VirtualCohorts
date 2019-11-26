@@ -1,6 +1,13 @@
-##Convertors and denovo subjects##
-setwd("/Users/Meems/Documents/PhDWork/BayesianNetworkAD/Bayesian")
-#load adnimerge data
+
+##Script name: 1_preProcessing.R
+
+##Purpose of Script: preprocesses ADNI data, deals with missing values, creation of auxilliary variables and imputation. 
+
+##Author: Meemansa Sood
+
+##Date Created:October 2018
+
+##load all the required libraries
 library(data.table)
 library(bnlearn)
 library(arules)
@@ -14,6 +21,9 @@ library(stringr)
 library(doMC)
 library(readxl)
 library(dplyr)
+
+##load adni dataset adnimerge (requires ADNI data access)##
+
 ##extract all the convertors and the de-novo subjects##
 aggDiagnosis <- ddply(adnimerge, .(PTID), summarize, DX = toString(DX))
 patientid <- c()
@@ -121,9 +131,10 @@ selectedFeatures <- selectedFeatures[-rem.rid,]
 blCols <- grep("bl", colnames(selectedFeatures), value = TRUE)
 selectedFeatures[,blCols] <- NULL
 
-##taking out demographic features##
+##extracting demographic features##
 demogs <- grep("^PT[^ID|AU].*", colnames(selectedFeatures), value = TRUE)
 demogsAndOthers <- c(demogs, "AGE", "M", "PTID", "Month", "APOE4")
+
 ##converting the data frame to wider format##
 ##extracting the columns that need to be converted to wider format##
 selectedCols <- setdiff(colnames(selectedFeatures), demogsAndOthers)
@@ -139,7 +150,8 @@ remove50PercMissingCols <- setdiff(colnames(baselineFeatures),colnames(baselineF
 toMatch <- (unlist(strsplit(remove50PercMissingCols, "\\.bl")))
 matches <- unique(grep(paste(toMatch,collapse="|"), colnames(reshapeDf), value=TRUE))
 reshapeDf[,matches] <- NULL
-##1.csf data frame##
+
+##csf data frame##
 csfDf <- reshapeDf[,grep("ABETA|TAU|PTAU", colnames(reshapeDf), value = TRUE)]
 
 ##Volumetric data frame##
@@ -175,8 +187,7 @@ allFeatures <- cbind.data.frame(demogsAndOthersDf, csfDf, volumeDf, cogTestDf, f
 ##change the column name of fdgdf##
 names(allFeatures)[names(allFeatures) =="fdgDf"] <- "FDG.bl"
 
-
-# Add group name to columns
+## Add group name to columns
 colnames(csfDf) = paste0("csf_",colnames(csfDf))
 colnames(volumeDf) = paste0("brain_",colnames(volumeDf))
 colnames(cogTestDf) = paste0("Cog_",colnames(cogTestDf))
@@ -291,14 +302,17 @@ get_aux_all_groups = function(cohortdata){
 
 ##add PTID to reshapeDf##
 allFeatures$PTID <- demogsAndOthersDf$PTID.bl
-##add snp and pathway data##
-load("~/Documents/PhDWork/BayesianNetworkAD/dat_full.rda")
+##add snp and pathway data ##
+#load("~/dat_full.rda")
+                                     
 snps.dat.full = c(colnames(dat.full)[grep("(PTID|rs[0-9]+)", colnames(dat.full))])
 pathways = c(colnames(dat.full)[grep("PTID|^.*Homo.sapiens|\\.[a-z]+$|\\.[A-Z][a-z]+$|^[A-Z][a-z]+$",colnames(dat.full))])
 snp.pathway.data <- dat.full[,c(snps.dat.full, pathways)]
 snp.pathway.data <- setDT(snp.pathway.data, keep.rownames = TRUE)[]
 names(snp.pathway.data)[1] <- "PTID"
-EMC_ADNI_FS60_Phenotypes_Desikan_20180219 <- read_excel("~/Documents/PhDWork/BayesianNetworkAD/EMC_ADNI_FS60_Phenotypes_Desikan_20180219.xlsx")
+                                     
+##load cortical brain volume baseline data##                                     
+#EMC_ADNI_FS60_Phenotypes_Desikan_20180219 <- read_excel("~/EMC_ADNI_FS60_Phenotypes_Desikan_20180219.xlsx")
 volumeRegion <- as.data.frame(EMC_ADNI_FS60_Phenotypes_Desikan_20180219)
 names(volumeRegion)[1] <- "PTID"
 brainRegion <- c(colnames(volumeRegion)[grep("Left|Right", colnames(volumeRegion))])
@@ -343,6 +357,7 @@ visitData = list("visitbl" = allData[, grep(".bl", colnames(allData), value = TR
                  "visit3" = allData[, grep(".m24", colnames(allData), value = TRUE)])
 
 colnames(visitData$visitbl) = sub("bl", "m00", colnames(visitData$visitbl)) 
+                                     
 # Create auxillary columns - group-wise and visit-wise
 visitData_aux = sapply(visitData, get_aux_all_groups)
 
