@@ -1,10 +1,7 @@
 
 ##Script name: 1_preProcessing.R
-
 ##Purpose of Script: preprocesses ADNI data, deals with missing values, creation of auxilliary variables and imputation. 
-
 ##Author: Meemansa Sood
-
 ##Date Created:October 2018
 
 ##load all the required libraries
