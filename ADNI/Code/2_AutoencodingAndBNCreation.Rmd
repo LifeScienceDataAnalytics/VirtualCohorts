@@ -1,6 +1,10 @@
 ---
 title: "R Notebook"
 output: html_notebook
+Script name: "2_AutoencodingAndBNCreation.Rmd"
+Purpose of Script: autoencoded models generated for group of variables at each time point for e.g. one autoencoded variable generated for seven brain volumes. Bayesian network is created.
+Author: Meemansa Sood
+Date Created: October 2018
 ---
 
 ##Load all the libraries
@@ -80,6 +84,9 @@ getdeepfeature <- function(train_data, groupname, timepoint){
 ```
 
 ```{r}
+##load the save woorkspace from 1_preProcessing.R
+load("~/preprocessing.RData")
+
 ##converting the snps to numeric 
 impData[c(snps,"APOE4.bl")] <- lapply(impData[c(snps,"APOE4.bl")], as.numeric)
 impDataNoPath <- impData[ ,!(names(impData) %in% c(paths, "path.aux"))]
@@ -186,7 +193,6 @@ timePoints <- c("bl", "m06", "m12", "m24")
     disc_meta_rf <- meta_rf
     names(disc_meta_rf)[12] <- "AGE.bl"
     names(disc_meta_rf)[13] <- "FDG.bl"
-    pdf("/Users/Meems/Documents/PhDWork/BayesianNetworkAD/CodeAndResultsforPaper/FinalResults/hist_bins_new.pdf")
     for(i in colnames(disc_meta_rf)){
       dt_breaks <- create_breaks(disc_meta_rf[,i], input_df[,"DX.bl"], method="dt")
       disc_meta_rf[,i] <- create_bins(disc_meta_rf[,i], dt_breaks)
@@ -316,7 +322,7 @@ cvres5 = bn.cv(DiscAutoEnADNI, "si.hiton.pc", runs=10, fit="bayes", loss="logl",
   
 cvres6 = bn.cv(DiscAutoEnADNI, "mmpc", runs=10, fit="bayes", loss="logl", algorithm.args = list(blacklist=blNoPath, whitelist=wlNoPath, undirected=FALSE), cluster=cl)
 
-png("FinalResults/logLikelihoodCVNov.png", width = 8, height = 8, units = 'in', res = 600)
+#png("/logLikelihoodCVNov.png", width = 8, height = 8, units = 'in', res = 600)
 plot(cvres1, cvres2, cvres3, cvres4, cvres5, cvres6, xlab=c("rsmax2", "mmhc", "hc", "tabu","si.hiton.pc", "mmpc"))
 dev.off()
 
