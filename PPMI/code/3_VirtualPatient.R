@@ -1,3 +1,10 @@
+##Script name: 3_VirtualPatient.R
+##Purpose of Script: Simulation of virtual patients. Classifier to classify virtual and real patients using conservative and non-conservative methods
+##Author: Meemansa Sood, Akrishta Sahay
+##Date Created:October 2018
+
+load("~/stable_network.RData")
+rm( list = setdiff(ls() , c("disc_meta", "dt_bl", "dt_wl","dics_data" ) ))
 library(randomForest)
 library(bnlearn)
 library(ggplot2)
@@ -21,6 +28,9 @@ while(!converged & iter <= 100){
   
   y = factor(c(rep("original", NROW(realCopy)), rep("generated", NROW(generatedDF) + NROW(real) - NROW(realCopy))))
   df = data.frame(y=y, x=rbind(real, generatedDF))
+  #fit = randomForest(y ~ ., data=df, classwt=c("original" = 1000, "generated" = 1), ntree = 500)
+  #fit = tuneRF(df,y, stepFactor=1.5, improve=1e-5, ntree=500,doBest = TRUE)
+  #fit <- rfsrc(y ~ ., data = df, case.wt = c(rep(1,sum(y =="original")), rep(0.2, sum(y== "generated")))   )
   fit = rfsrc(y ~ ., data=df, case.wt=c(rep(1,sum(y=="original")), rep(0.2*sum(y=="original")/sum(y=="generated"), sum(y=="generated"))))
   print(fit)
   
@@ -43,6 +53,10 @@ test_d = setNames(data.frame(matrix(ncol = 4, nrow = 0)), c("D","D.str","M1","M2
 # 
 RealPep = real[1:362,] 
 VirtPep = real[362:nrow(real),]  
+
+# RealPep = as.data.frame(sapply(real, as.numeric))
+# VirtPep  =  as.data.frame(sapply(virtual , as.numeric))
+
 
 rownames(RealPep) = paste0("R", 1:nrow(RealPep))
 rownames(VirtPep) = paste0("V", 1:nrow(VirtPep))
@@ -122,11 +136,15 @@ mca_plot = fviz_mca_biplot(res.mca,
                 ggtheme = theme_minimal(),habillage = allPep$typeOfPatient,palette = c("#00AFBB", "#E7B800","#ff0000"), invisible=c("var"))
 
 plot.MCA(res.mca,invisible=c("var"))
-    
+
+#https://cran.r-project.org/web/packages/plotROC/vignettes/examples.html      
 ################################################################################################################
 ################# Simulate using rbn() with adding more patients ######################################
+load("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature/Workspace/stable_network.RData")
+rm( list = setdiff( ls() , c("disc_meta", "dics_data" , "disc_bnlearn", "get_bl_wl","finalBN" , "discPCA2", "dt_wl", "dt_wl" ,"bnoutput_mean")))
 library(randomForestSRC)
 library(pROC)
+#load("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/bitcluster/ClusteringandBN/stable_network_cluster.RData")
 
 ## Simulate virtual patients 
 simulated = rbn(finalBN, n = 362, discPCA2, fit = "bayes", debug = FALSE)
@@ -208,6 +226,8 @@ library(plotROC)
 set.seed(2529)
 aucplot <- ggplot(test_d, aes(d = D, m = M1)) + geom_roc() + style_roc()
 
+# workspace 
+#save.image("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature/Workspace/3_VirtualPatient_211.RData")
 #========= MCA plot =======================
 
 # Apply MCA
@@ -222,6 +242,7 @@ all_subject$typeOfPatient = as.factor(all_subject$typeOfPatient)
 
 res.mca =  MCA(all_subject, graph = FALSE)
 # visualize plots to see outliers 
+#The function fviz_mca_biplot() [factoextra package] is used to draw the biplot of individuals and variable categories:
 
 fviz_mca_biplot(res.mca, 
                 repel = TRUE, # Avoid text overlapping (slow if many point)
@@ -243,7 +264,9 @@ plot.MCA(res.mca,invisible=c("var"))
 #################################################################################################################
 library(reshape2)
 # Generative method
-
+#load("~/Documents/Masters_thesis/Markdown_pages/CompareAllMethod/PPMI_selectedFeature/Workspace/3_VirtualPatient_120.RData")
+load("~/Documents/PhDWork/BayesianNetworkAD/CodeAndResultsforPaper/PPMI/Workspace/3_VirtualPatient_120.RData")
+rm(list = setdiff(ls() , c("dics_data", "dt_bl", "dt_wl","real", "RealPep", "VirtPep" ) ))
 xorig = real[1:362,]
 xsimulated = real[362:nrow(real),]
 xsimulated = xsimulated[1:362,]
@@ -292,79 +315,76 @@ x_xorig_Bar$variable = sub("UPDRS_", "", x_xorig_Bar$variable)
 x_xorig_Bar$variable = sub("RBD_", "", x_xorig_Bar$variable)
 x_xorig_Bar <- x_xorig_Bar[order(x_xorig_Bar$variable),]
 
-png("/output/Variable_density_generative_1.png", width = 32, height = 22, units = 'in', res = 600)
+#png("/Variable_density_generative_1.png", width = 32, height = 22, units = 'in', res = 600)
 ggplot(data = x_xorig, aes(value,colour=Category)) +  facet_wrap(~ variable, scales = "free") +theme(strip.text.x = element_text(size=4)) + geom_density()+theme_classic()          
 dev.off()   
 
-##mutual informartion between real and virtual subjects##
-library(infotheo)
-load("~/3_VirtualPatient_120.RData")
-rm( list = setdiff(ls() , c("dics_data", "dt_bl", "dt_wl","real", "RealPep", "VirtPep")))
+auxVar <- grep("aux", colnames(RealPep), value = TRUE)
+##remove aux
 RealPep$typeOfPatient <- NULL
 VirtPep$typeOfPatient <- NULL
-VirtPep = VirtPep[1:362,]
-auxVar <- grep("aux", colnames(RealPep), value = TRUE)
 features <- setdiff(colnames(RealPep), auxVar)
-miDf <- data.frame()
+remove_row = grep("aux", colnames(RealPep) , value = TRUE)
+VirtPep = VirtPep[1:362,]
+RealPep <- as.data.frame(lapply(RealPep, as.factor))
+VirtPep <- as.data.frame(lapply(VirtPep, as.factor))
+library(entropy)
+chiDf <- data.frame()
 for(name in features){
-  mi <- mutinformation(RealPep[,name], VirtPep[,name], method="emp")
-  miDf <-  rbind(miDf, data.frame(name, mi))
+  print(name)
+  df <- rbind(table(RealPep[,name]), table(VirtPep[,name]))
+  #df <- table(RealPep[,name], VirtPep[,name])
+  chiSQ = chisq.test(df)
+  print(chiSQ)
+  chiDf <-  rbind(chiDf, data.frame(name, p.value = chiSQ$p.value))
+  df <- NULL
 }
 
-
-
-library(maigesPack)
-RealPepCp <- RealPep
-RealPepCp$Imaging_V00 <- as.numeric(RealPepCp$Imaging_V00 )
-RealPepCp$Patient_SimpleGender <- as.numeric(RealPepCp$Patient_SimpleGender)
-VirtPepCp <- VirtPep
-VirtPepCp$Imaging_V00 <- as.numeric(VirtPepCp$Imaging_V00 )
-VirtPepCp$Patient_SimpleGender <- as.numeric(VirtPepCp$Patient_SimpleGender)
-pValueDf = data.frame()
-for(name in features){
-  pVal <- bootstrapMI(as.numeric(RealPepCp[,name]), as.numeric(VirtPepCp[,name]), bRep=1000, ret="p-value")
-  pValueDf = rbind(pValueDf, data.frame(name, pVal))
-}
-
-
-names(pValPPMI)[2] = "variable"
-pValPPMI$variable <- as.factor(pValPPMI$variable)
-pValPPMI$variable = sub("Patient_", "", pValPPMI$variable)
-pValPPMI$variable = sub("UPDRS_", "", pValPPMI$variable)
-pValPPMI$variable = sub("RBD_", "", pValPPMI$variable)
-pValPPMI$X1 <- NULL
-x <- as.character(pValPPMI$variable) == "Imaging_V00"
-pValPPMI = rbind(pValPPMI[!x,], pValPPMI[x,])
-pValPPMICp <- pValPPMI
-pValPPMICp$pVal <- paste(pValPPMI$variable, ", ", "pval=", pValPPMICp$pVal, sep = "")
-colnames(pValPPMICp) <- pValPPMICp[1,]
-pValPPMICp <- t(pValPPMICp)
-pValPPMICp <- as.data.frame(pValPPMICp)
-pValPPMICp <- pValPPMICp[-1,]
-pValPPMICp <- as.list(pValPPMICp)
+chiDf$adj.p = p.adjust(chiDf$p.value, method = "bonferroni", n = length(chiDf$p.value))
+chiSqPPMIadjPval = chiDf
+names(chiDf)[2] = "variable"
+chiSqPPMIadjPval$variable <- as.factor(chiSqPPMIadjPval$variable)
+chiSqPPMIadjPval$variable = sub("Patient_", "", chiSqPPMIadjPval$variable)
+chiSqPPMIadjPval$variable = sub("UPDRS_", "", chiSqPPMIadjPval$variable)
+chiSqPPMIadjPval$variable = sub("RBD_", "", chiSqPPMIadjPval$variable)
+chiSqPPMIadjPval$X1 <- NULL
+x <- as.character(chiSqPPMIadjPval$variable) == "Imaging_V00"
+chiSqPPMIadjPval = rbind(chiSqPPMIadjPval[!x,], chiSqPPMIadjPval[x,])
+chiSqPPMIadjPvalCp <- chiSqPPMIadjPval
+chiSqPPMIadjPvalCp$p.value <- NULL
+chiSqPPMIadjPvalCp$adj.p<- paste(chiSqPPMIadjPval$variable, ", ", "adj.p=", round(chiSqPPMIadjPval$adj.p, digits = 2), sep = "")
+chiSqPPMIadjPvalCp <- t(chiSqPPMIadjPvalCp)
+colnames(chiSqPPMIadjPvalCp) <- chiSqPPMIadjPvalCp[1,]
+chiSqPPMIadjPvalCp <- as.data.frame(chiSqPPMIadjPvalCp)
+chiSqPPMIadjPvalCp <- chiSqPPMIadjPvalCp[-1,]
+chiSqPPMIadjPvalCp <- as.list(chiSqPPMIadjPvalCp)
 variable_labeller <- function(variable,value){
-  return(pValPPMICp[value])
+  return(chiSqPPMIadjPvalCp[value])
 }
-x_xorig_Bar$variable = factor(x_xorig_Bar$variable, levels= pValPPMI$variable)
+x_xorig_Bar$variable = factor(x_xorig_Bar$variable, levels= chiSqPPMIadjPval$variable)
 
-png("/output/Variable_histogram_generative_1.png", width = 32, height = 22, units = 'in', res = 600)
-ggplot(data = x_xorig_Bar, aes(value,fill=Category, colour=Category)) +  facet_wrap(~ variable, scales = "free", labeller = variable_labeller)+theme(strip.text.x = element_text(size=4)) +geom_histogram(position="dodge",stat="count")+theme_classic() + theme(axis.text = element_text(size=10),
-                                                                                                                                                                                                                                axis.text.x = element_text(size = 10,  angle=90, hjust = 1),
-                                                                                                                                                                                                                                  axis.title = element_text(size = 10, face = "bold"),
-                                                                                                                                                                                                                                 strip.text = element_text(size = 10))
-
-
-
-
-
+#png("/Variable_histogram_generative_Vs3.png", width = 50, height = 40, units = 'in', res = 600)
+p <- ggplot(data = x_xorig_Bar, aes(value,fill=Category, colour=Category)) +geom_histogram(aes(y = (..count..)/sum(..count..)), position="dodge",stat="count")+ labs(x = "Values", y= "Relative frequency") +theme_classic() + theme(legend.title = element_text(face = "bold", size = 14),
+                                                                                                                                                                                                                                     legend.text=element_text(size=12),
+                                                                                                                                                                                                                                     axis.text = element_text(size=14),
+                                                                                                                                                                                                                                     axis.text.x = element_text(size = 14,  angle=90, hjust = 1),
+                                                                                                                                                                                                                                     axis.text.y = element_text(size = 14),
+                                                                                                                                                                                                                                     axis.title = element_text(size = 14, face = "bold"),
+                                                                                                                                                                                                                                     strip.text = element_text(size = 14))
 
 
+p1 <- p + facet_wrap(~ variable, scales = "free", labeller = variable_labeller) + theme(strip.text.x = element_text(size=14, face = "bold"),
+                                                                                         strip.background = element_rect(
+                                                                                           color="black", size=1.5, linetype="solid"
+                                                                                         )) + theme(panel.spacing = unit(1, "lines"))
 
-
-dev.off()
+p1 + labs(x = "Values", y = "Relative Frequencies") + theme(axis.title.y = element_text(size = rel(1.8)),
+                                                            axis.title.x = element_text(size = rel(1.8))) 
+#dev.off()
 
 # =========== NOT Generative method =======================
-
+#load("~/3_VirtualPatient_211.RData")
+rm(list = setdiff(ls() , c("dics_data", "dt_bl", "dt_wl","real","real","virtual")))
 xorig = real
 xsimulated = virtual
 
@@ -376,6 +396,7 @@ xorig <- xorig[, ! colnames(xorig) %in% remove_row ]
 remove_row2 = grep("aux", colnames(xsimulated) , value = TRUE)
 xsimulated <- xsimulated[, ! colnames(xsimulated) %in% remove_row2 ]
 
+#print(setdiff(colnames(xorig), colnames(xsimulated)))
 
 # Reshape
 xorig = as.data.frame(sapply(xorig, as.numeric))
@@ -396,15 +417,18 @@ x_xorig$variable = sub("CSF_", "", x_xorig$variable)
 x_xorig$variable = sub("RBD_", "", x_xorig$variable)
 
 
-png("Variable_density_Not_generative.png", width = 12, height = 12, units = 'in', res = 600)
+#png("Variable_density_Not_generative.png", width = 12, height = 12, units = 'in', res = 600)
 ggplot(data = x_xorig, aes(value,colour=Category)) +  facet_wrap(~ variable, scales = "free") +theme(strip.text.x = element_text(size=4)) + geom_density()+theme_classic()          
-dev.off()  
+#dev.off()  
 #===== make side by side plot======
 load("~/generativeVP.RData")
 generative_aucplot = aucplot
 generative_bx = bx
 generative_mca_plot = mca_plot
 
+load("~/not_generativeVP.RData")
+
+ggsave("boxplot_auc", arrangeGrob(aucplot, generative_aucplot))
 
 
 require(gridExtra)
@@ -415,4 +439,6 @@ grid.arrange(plot1, plot2, ncol=2)
 par(mfrow=c(1,2))
 generative_bx
 bx
+
+
 
